@@ -1,3 +1,6 @@
+#include <stdio.h>
+#include <limits.h>
+#include <stdint.h>
 // From https://jameshfisher.com/2017/02/23/printing-bits/
 void print_byte_as_bits(char val) {
   for (int i = 7; 0 <= i; i--) {
@@ -15,5 +18,24 @@ void print_bits(char * ty, char * val, unsigned char * bytes, size_t num_bytes) 
 }
 
 #define SHOW(T,V) do { T x = V; print_bits(#T, #V, (unsigned char*) &x, sizeof(x)); } while(0)
+
+void show_ieee754 (char* msg, float f) {
+    union {
+        float f;
+        uint32_t u;
+    } fu = { .f = f };
+    int i = sizeof f * CHAR_BIT;
+
+		printf(msg, f);
+    printf ("  ");
+    while (i--)
+        printf ("%d ", (fu.u >> i) & 0x1);
+
+    putchar ('\n');
+    printf (" |- - - - - - - - - - - - - - - - - - - - - - "
+            "- - - - - - - - - -|\n");
+    printf (" |s|      exp      |                  fraction"
+            "                   |\n\n");
+}
 
 
