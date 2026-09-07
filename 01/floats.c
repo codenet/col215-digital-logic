@@ -32,11 +32,13 @@ int main (void) {
 
     show_ieee754("%.23f\n", 0.1);
 		// if(0.1+0.2 == 0.3) {
-		// // if(float_equal(0.1+0.2, 0.3)) {
-		// 	printf("Equal\n");
-		// } else {
-		// 	printf("Not equal\n");
-		// }
+		if(float_equal(0.1+0.2, 0.3)) {
+			printf("Equal\n");
+		} else {
+			printf("Not equal\n");
+		}
+
+    show_ieee754("EPSILON -> %e\n", FLT_EPSILON);
     return 0;
 }
 
