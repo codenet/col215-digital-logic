@@ -68,8 +68,9 @@ Now, if the SW0 is ON, then all the LEDs except G should be switched ON.
 Similarly, if SW3 is ON, then LEDs F and E should be OFF, and the rest should
 be ON.
 
-![Figure 2](FPGA_Tutorial_7_segment_LED.png)
 **Figure 2:** Pin details for 7 seven display on Basys 3 board
+
+![Figure 2](./FPGA_Tutorial_7_segment_LED.png)
 
 ### Important Note
 
