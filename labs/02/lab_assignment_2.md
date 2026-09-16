@@ -9,22 +9,7 @@
 Design and implement a circuit that takes as input the switches SW0-SW9 in the
 Basys3 board and displays the corresponding decimal digit 0–9 on one of the four
 7-segment displays on the board. For example, if SW9 is turned ON (and switches
-SW0–SW8 turned OFF), then the digit 9 should appear on the display. Full table below.
-
-### Switch-to-Digit Mapping
-
-| Slider Switch | Digit to Display |
-|---------------|------------------|
-| SW9           | 9                |
-| SW8           | 8                |
-| SW7           | 7                |
-| SW6           | 6                |
-| SW5           | 5                |
-| SW4           | 4                |
-| SW3           | 3                |
-| SW2           | 2                |
-| SW1           | 1                |
-| SW0           | 0                |
+SW0–SW8 turned OFF), then the digit 9 should appear on the display. 
 
 ---
 
@@ -74,9 +59,9 @@ be ON.
 
 ### Important Note
 
-The on Basys 3 board anode/cathode are **ACTIVE LOW** pins (i.e., 0 = ACTIVE, 1 = INACTIVE).
-
-For details, refer to the Basys 3 reference manual Section 8.1 Seven-Segment Display.
+On Basys 3 board anode/cathode are **ACTIVE LOW** pins (i.e., 0 = ACTIVE, 1 =
+INACTIVE).  For details, refer to the Basys 3 reference manual Section 8.1
+Seven-Segment Display.
 
 ---
 
@@ -84,5 +69,4 @@ For details, refer to the Basys 3 reference manual Section 8.1 Seven-Segment Dis
 
 - **IEEE Document:** https://ieeexplore.ieee.org/document/1620780
 - **Basys 3 Board Reference Manual:** https://digilent.com/reference/_media/basys3:basys3_rm.pdf
-- **Online Verilog Simulator:** https://www.edaplayground.com
 
