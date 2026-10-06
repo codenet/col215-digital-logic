@@ -26,8 +26,8 @@ full_adder  ──►  four_bit_adder  ──►  bcd_adder  ──►  top (giv
 |--------------------|---------------|-------------------------------------------------------------|
 | `full_adder.v`     | **TODO 1**    | 1-bit full adder                                            |
 | `four_bit_adder.v` | **TODO 2**    | 4-bit ripple-carry adder built from `full_adder`s           |
-| `bcd_adder.v`      | **TODO 3**    | 1-digit BCD adder (you design the circuit)                  |
-| `ssd.v`            | Given         | BCD digit to 7-segment decoder (as in Lab 2)                |
+| `bcd_adder.v`      | **TODO 3**    | BCD adder (design the circuit)                              |
+| `ssd.v`            | Given         | BCD digit to 7-segment decoder (as in previous labs)        |
 | `top.v`            | Given         | Connects switches → `bcd_adder` → two 7-segment displays    |
 | `master.xdc`       | Given         | Basys3 constraints                                          |
 | `tb_*.v`           | Given         | Self-checking testbenches, one per TODO module              |
@@ -80,7 +80,7 @@ Build a 4-bit ripple-carry adder by chaining four `full_adder` instances.
    previous stage's `cout` (`c1`, `c2`, `c3`).
 3. The carry out of the MSB stage is the module output `cout`.
 
-`{cout, s}` should equal `a + b` for **all** 256 input combinations.
+`{cout, s}` should equal `a + b`
 
 ### TODO 3: BCD adder (`bcd_adder.v`)
 
@@ -167,16 +167,6 @@ why your circuit gives the correct `s` in every row of the table.
    **In Vivado:** add the `tb_*.v` files as *simulation sources*, right-click
    the testbench you want and choose *Set as Top*, then run *Run Simulation →
    Run Behavioral Simulation*. The result is printed in the Tcl console.
-
-   **From the command line** (with Vivado's `bin` directory on your `PATH`):
-
-   ```sh
-   xvlog full_adder.v four_bit_adder.v bcd_adder.v tb_bcd_adder.v
-   xelab tb_bcd_adder -s tb_bcd_adder
-   xsim tb_bcd_adder -R
-   ```
-
-   Change the testbench name to run the other two.
 
 2. **Then run on the board.** Create a Vivado project with all `.v` files and
    `master.xdc`, set `top` as the top module, generate the bitstream and
