@@ -6,8 +6,8 @@
 
 ## 1. Introduction
 
-An **Arithmetic Logic Unit (ALU)** is the part of a CPU that does the
-calculating. In this lab you will build the ALU of the *Hack* computer from
+An **Arithmetic Logic Unit (ALU)** is the part of a CPU that does
+arithmetic. In this lab, you will build an ALU for the *Hack* computer from
 Nisan & Schocken, *The Elements of Computing Systems* (2nd ed.),
 section 2.5.2 (pp. 68–72). The book's ALU works on 16-bit numbers; ours
 works on **4-bit** numbers, but the design is otherwise identical.
@@ -74,13 +74,13 @@ mux2_4 ───────────────────────┘
            │   │
        ┌───▼───▼─────┐ x_pre       ┌────────────────┐ and_out  ┌──────────┐
  x ───►│ zero_negate ├──────┬─────►│      AND       ├─────────►│ a        │
-       │   (pre_x)   │      │   ┌─►│                │          │          │          no
-       └─────────────┘      │   │  └────────────────┘          │  mux2_4  │ f_out    │
-                            │   │                              │(select_f)├────►┌─────▼───────┐
+       │   (pre_x)   │      │   ┌─►│                │          │          │           0  no
+       └─────────────┘      │   │  └────────────────┘          │  mux2_4  │ f_out     │  │
+                            │   │                              │(select_f)├────►┌─────▼──▼────┐
        ┌─────────────┐      │   │  ┌────────────────┐ add_out  │          │     │ zero_negate ├──► out ──► zr, ng
  y ───►│ zero_negate ├──────┼───┴─►│ four_bit_adder ├─────────►│ b        │     │ (post_out)  │
-       │   (pre_y)   │ y_pre└─────►│    (adder)     │          │   sel    │     │    z = 0    │
-       └───▲───▲─────┘             └────────────────┘          └────▲─────┘     └─────────────┘
+       │   (pre_y)   │ y_pre└─────►│    (adder)     │          │   sel    │     └─────────────┘
+       └───▲───▲─────┘             └────────────────┘          └────▲─────┘     
            │   │                                                    │
            zy  ny                                                   f
 ```
@@ -135,14 +135,14 @@ Addition ignores the carry out of the MSB, so results wrap around:
 | Signal                         | Board                                       |
 |--------------------------------|---------------------------------------------|
 | `x[0:3]`                       | SW3 (MSB), SW2, SW1, SW0 (LSB)              |
-| `zx`, `nx`, `zy`, `ny`, `f`, `no` | SW9, SW8, SW7, SW6, SW5, SW4             |
-| `y[0:3]`                       | SW15 (MSB), SW14, SW13, SW12 (LSB)          |
+| `zx`, `nx`, `zy`, `ny`, `f`, `no` | SW15, SW14, SW13, SW12, SW11, SW10       |
+| `y[0:3]`                       | SW7 (MSB), SW6, SW5, SW4 (LSB)              |
 | `out[0:3]`                     | LD3 (MSB), LD2, LD1, LD0 (LSB)              |
 | `zr`                           | LD15                                        |
 | `ng`                           | LD14                                        |
 | `out` as a signed decimal      | Sign on AN1, magnitude on AN0 (rightmost)   |
 
-The control switches SW9–SW4 are in the same left-to-right order as the
+The control switches SW15–SW10 are in the same left-to-right order as the
 columns of the table above, so you can copy a row straight onto the board.
 
 ---
@@ -173,9 +173,7 @@ if (n == 1) out = !in    else out = in
 
 `mux2_4` outputs `a` when `sel = 0` and `b` when `sel = 1`.
 
-1. Write the truth table of a 1-bit 2-to-1 mux (inputs `a`, `b`, `sel`).
-2. Use a K-map to derive a simplified expression for `out`.
-3. Implement it for 4 bits with one `assign` statement.
+Implement it for 4 bits with one `assign` statement.
 
 ### TODO 3: ALU datapath (`alu.v`)
 
@@ -198,25 +196,6 @@ declared, and `pre_x` is instantiated for you. Add:
 
 Use only `&`, `|`, `~` on the individual bits of `out`. How many bits of
 `out` do you need to look at to decide `ng`?
-
-### Questions
-
-Work through these on paper. Be ready to explain your answers.
-
-1. In two's complement, `!v = −v − 1` for every 4-bit `v`. Check this for
-   `v = 3` and `v = −8`.
-2. The book traces the row `x-1` (`001110`) on p. 71. Do the same for
-   `x+1` (`011111`) with `x = 5`: write down `x_pre`, `y_pre`, `f_out` and
-   `out` in binary. Then use question 1 to show that this row gives `x+1`
-   for **every** `x`.
-3. Do the same for `x-y` (`010011`).
-4. `zero_negate` zeroes first and negates second. Which rows of the table
-   would stop working if the order were swapped? Why?
-5. Set `x = 7`, `y = 1` and compute `x+y`. What do `out`, `zr` and `ng`
-   show? Is `ng` "wrong"? What is going on?
-6. Six control bits allow 64 settings, but the table lists only 18. What
-   does `000001` compute? Find one more setting not in the table that
-   computes something useful.
 
 ### Rules
 
@@ -256,10 +235,10 @@ Work through these on paper. Be ready to explain your answers.
    files and `master.xdc`, set `top` as the top module, generate the
    bitstream and program the Basys3.
 
-   Set `x = 3` (SW3–SW0 = `0011`) and `y = 2` (SW15–SW12 = `0010`), then try
+   Set `x = 3` (SW3–SW0 = `0011`) and `y = 2` (SW7–SW4 = `0010`), then try
    these rows:
 
-   | Function | SW9–SW4 (`zx nx zy ny f no`) | Display | LD3–LD0 | LD15 (`zr`) | LD14 (`ng`) |
+   | Function | SW15–SW10 (`zx nx zy ny f no`) | Display | LD3–LD0 | LD15 (`zr`) | LD14 (`ng`) |
    |:--------:|:----------------------------:|:-------:|:-------:|:-----------:|:-----------:|
    |   `0`    |           `101010`           |   `0`   | `0000`  |     on      |     off     |
    |  `x+y`   |           `000010`           |   `5`   | `0101`  |     off     |     off     |
@@ -269,6 +248,25 @@ Work through these on paper. Be ready to explain your answers.
    |  `x&y`   |           `000000`           |   `2`   | `0010`  |     off     |     off     |
    |  `x\|y`  |           `010101`           |   `3`   | `0011`  |     off     |     off     |
 
-   Then check your answer to question 5 on the board.
+   Then check your answer to question 5 below on the board.
 
 ---
+
+### Questions
+
+Work through these on paper. Be ready to explain your answers.
+
+1. In two's complement, `!v = −v − 1` for every 4-bit `v`. Check this for
+   `v = 3` and `v = −8`.
+2. The book traces the row `x-1` (`001110`) on p. 71. Do the same for
+   `x+1` (`011111`) with `x = 5`: write down `x_pre`, `y_pre`, `f_out` and
+   `out` in binary. Then use question 1 to show that this row gives `x+1`
+   for **every** `x`.
+3. Do the same for `x-y` (`010011`).
+4. `zero_negate` zeroes first and negates second. Which rows of the table
+   would stop working if the order were swapped? Why?
+5. Set `x = 7`, `y = 1` and compute `x+y`. What do `out`, `zr` and `ng`
+   show? Is `ng` "wrong"? What is going on?
+6. Six control bits allow 64 settings, but the table lists only 18. What
+   does `000001` compute? Find one more setting not in the table that
+   computes something useful.
