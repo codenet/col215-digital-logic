@@ -207,6 +207,14 @@ Because of this, `count` can become **far above `MAX`**. The "stop at `MAX`
 check never matches there, and when you let go, `count` has to count down from
 up to 2³² − 1: about **43 seconds** at 100 MHz. That is the freeze.
 
+You can understand this by changing `MAX` to 2, `THRESHOLD` to 1, and `count` to
+a 2-bit register: `reg [1:0]` so that you can easily visualize and understand
+the resulting circuit. In Vivado, run Synthesis and see `Schematic` to see the
+below schematic diagram. Try to understand how your code resulted in this
+circuit. The issue is that the `noisy` BTNC is feeding into both the flip-flops
+of the 2-bit `count`. Due to violations of setup and/or hold times, they can
+both simultaneously become `1`, making the `count` greater than `MAX` (which
+should never have happened as per your code).
 
 ![schematic](./schematic.png)
 
