@@ -192,7 +192,7 @@ held, a release takes at most about 20 ms to show.
 ### Problem
 Every tap should count. But you may see the counter **freeze**: taps are not
 counted for many seconds, and then it might work again. It does not happen
-often, so keep tapping. This is a *Mealy glitch*.
+often, so keep tapping.
 
 The problem is that `noisy` comes from outside the FPGA. It can change at any
 time, for example, at a rising edge of `clk`.
