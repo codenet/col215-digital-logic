@@ -1,126 +1,238 @@
 # COL215 – Digital Logic and System Design
 
-**Lab 7: Debouncing and the Mealy glitch**
+**Lab 5: Debouncing a push button**
 
 ---
 
 ## 1. Introduction
 
-In this lab you will clock an FSM by hand: **one press of BTNC = one clock
-edge**. This brings up two problems you cannot see in a simulation with a
-clean clock:
+A push button does not go cleanly from 0 to 1. For a few milliseconds its
+metal contacts **bounce**, so the FPGA sees many 0 → 1 changes for one press.
+If you count presses, one press counts as several. In the next lab a button
+will be the **clock** of an FSM, and every bounce will be an extra clock edge.
 
-1. **Bouncing.** A push button does not go cleanly from 0 to 1. For a few
-   milliseconds its metal contacts bounce, so the FPGA sees many 0 → 1 changes
-   for one press. Each one is a clock edge.
-2. **The Mealy glitch.** A Mealy output depends on the state **and on the
-   input**. When the input changes between clock edges, the output changes
-   too, even though the FSM did not move.
+In this lab you build a **debouncer**: a circuit that turns the bouncy button
+signal `noisy` into a clean one, `clean`, that changes once per press and
+once per release. You build it in four steps. Each step fixes a problem that
+you first see on the board, and each step brings out the next problem:
 
-The FSM is the Mealy **zero detector** from Mano (Fig. 5.15/5.16). It sets
-`y_out = 1` when it sees a `0` right after one or more `1`s (`1 0`,
-`1 1 0`, `1 1 1 0`, ... all count).
-
-| State | `x_in = 0`: next / `y_out` | `x_in = 1`: next / `y_out` |
-|:-----:|:--------------------------:|:--------------------------:|
-| `S0`  |         `S0` / 0           |         `S1` / 0           |
-| `S1`  |         `S0` / **1**       |         `S3` / 0           |
-| `S2`  |         `S0` / **1**       |         `S2` / 0           |
-| `S3`  |         `S0` / **1**       |         `S2` / 0           |
-
-So in `S1`, `S2` and `S3`, `y_out = ~x_in`.
+| Step | Idea                    | Problem it fixes                         |
+|:----:|-------------------------|------------------------------------------|
+|  0   | no debouncer            | –                                        |
+|  1   | threshold               | one press counts several times           |
+|  2   | count down              | A very short release can create multiple counts   |
+|  3   | maximum                 | Under count                              |
+|  4   | synchronizer            | counter sometimes freezes for seconds    |
 
 ---
 
 ## 2. The board
 
-| Input / Output | Meaning                                                    |
-|----------------|------------------------------------------------------------|
-| BTNC           | the FSM clock: one press = one rising edge                  |
-| SW0            | `x_in`                                                     |
-| SW1            | reset, active low: **down = reset**, up = run              |
-| LD0            | `y_out`                                                    |
-| LD12–LD15      | one LED per state: LD12=`S0`, LD13=`S1`, LD14=`S2`, LD15=`S3` |
-| 7-segment      | number of presses of BTNC that the FPGA saw (cleared by reset) |
+| Input / Output | Meaning                                                  |
+|----------------|----------------------------------------------------------|
+| BTNC           | the button to debounce (`noisy`)                         |
+| BTNU           | clear the count                                          |
+| LD15           | the button as it is, no debouncing                       |
+| LD0            | `clean`, the debounced button                            |
+| 7-segment      | number of presses: each 0 → 1 change of `clean`          |
 
-The 7-segment counter runs on the 100 MHz clock and counts every 0 → 1
-change of the button signal it is given. It shows exactly how many clock
-edges the FSM received.
+The 7-segment counter runs on the 100 MHz clock and counts every 0 → 1.
 
 ### Provided files
 
-| File                       | Status     | Description                                      |
-|----------------------------|------------|--------------------------------------------------|
-| `debounce.v`               | **TODO 1a** | Button debouncer                             |
-| `mealy_top.v`              | **TODO 1b** | Board wrapper: FSM, LEDs, press counter      |
-| `mealy_fsm.v`              | **TODO 2**     | Mealy zero detector (`Mealy_Zero_Detector`)  |
-| `press_display.v`          | Given      | Press counter on the 7-segment display           |
-| `ssd.v`                    | Given      | 7-segment decoder                                |
-| `mealy_zero_detector.xdc`  | Given      | Basys3 constraints                               |
-| `tb_debounce.v`            | Given      | Self-checking testbench for `debounce`           |
-| `tb_mealy.v`               | Given      | Testbench for `Mealy_Zero_Detector` (Mano)       |
+| File               | Status            | Description                                 |
+|--------------------|-------------------|---------------------------------------------|
+| `debounce.v`       | **TODO, steps 1–4** | The debouncer                             |
+| `debounce_top.v`   | Given             | Board wrapper: debouncer, LEDs, counter     |
+| `press_display.v`  | Given             | Press counter on the 7-segment display      |
+| `ssd.v`            | Given             | 7-segment decoder                           |
+| `debounce.xdc`     | Given             | Basys3 constraints                          |
+| `tb_debounce.v`    | Given             | Self-checking testbench for `debounce`      |
 
-Do not change module names or port lists.
+Do not change module names, port lists or parameters.
 
-Make a Vivado project for the Basys3 (`xc7a35tcpg236-1`) with `mealy_top.v`,
-`mealy_fsm.v`, `debounce.v`, `press_display.v` and `ssd.v` as design sources,
-`mealy_zero_detector.xdc` as the constraint file, and `tb_debounce.v` and
-`tb_mealy.v` as simulation sources. `mealy_top` is the top module.
+Make a Vivado project for the Basys3 (`xc7a35tcpg236-1`) with
+`debounce_top.v`, `debounce.v`, `press_display.v` and `ssd.v` as design
+sources, `debounce.xdc` as the constraint file, and `tb_debounce.v` as a
+simulation source. `debounce_top` is the top module.
 
----
-
-## 3. Part 1: Debouncing
-
-### 3.1 See the bouncing
-
-In the given `mealy_top.v` the debouncer is commented out, and BTNC goes
-**straight** to the FSM clock and to the press counter.
-
-> Vivado will give a critical warning that `db/clean_reg/Q` is not found.
-> That is expected: the debouncer `db` does not exist yet. Ignore it for now.
-
-1. Generate the bitstream and program the board.
-2. SW1 down, then up (reset). The display shows `0`.
-3. Press and release BTNC **once**, slowly. Look at the display.
-4. Do it 20 times, one press at a time. Write down the count after each
-   press.
-5. Set SW0 up, reset, and press BTNC once. Look at LD12–LD15. With `x_in = 1`
-   one edge should take the FSM from `S0` to `S1`. Where did it end up?
-
-You should see that the counter often goes up by more than 1 for a single
-press, and sometimes also when you **release** the button. Each extra count
-is an extra clock edge for the FSM, so the FSM skips states.
-
-**Record:** after 20 presses, what count did you get? Which presses jumped
-the most: fast taps, slow presses, or presses that were held down?
-
-### 3.2 TODO 1: write the debouncer
-
-A bounce lasts at most a few milliseconds. The debouncer keeps a counter
-that goes **up while the button reads 1** and **down while it reads 0**. Short
-bounces only move the counter a little; the output only changes when the
-counter has gone far in one direction.
+### The debouncer
 
 ```verilog
 module debounce #(
     parameter THRESHOLD = 100_000,    // 1 ms at 100 MHz
     parameter MAX       = 2**21 - 1   // about 21 ms at 100 MHz
 )(
-    input      clk,
-    input      noisy,   // the button
+    input      clk,      // 100 MHz
+    input      noisy,    // the button
     output reg clean = 1'b0
 );
+    reg [31:0] count = 0;
 ```
 
-The two flip-flops `s0` and `s1` are given: they bring the button into the
-`clk` domain. Use only `s1`.
+### After every step
 
-**TODO 1a (`debounce.v`).** On every rising edge of `clk`:
+1. **Simulate** `tb_debounce.v` (*Set as Top*, *Run Behavioral Simulation*).
+   It sets `THRESHOLD` to 5 and `MAX` to 20 so the test is short. Each step
+   says which tests should pass.
+2. **Program the board** and do the experiment of that step.
 
-- If `s1` is 1, add 1 to `count`, but stop at `MAX`.
-- If `s1` is 0, subtract 1 from `count`, but stop at 0.
+---
+
+## 3. Step 0: see the bouncing
+
+`debounce.v` starts with a placeholder, `clean <= noisy;`, so there is no
+debouncing yet.
+
+1. Generate the bitstream and program the board.
+2. Press BTNU. The display shows `0`.
+3. Press and release BTNC **once**, slowly. Look at the display.
+4. Do you notice any discrepency?
+
+The count often goes up by more than 1 for one press, sometimes also when
+you **release** the button. Each extra count is a bounce.
+
+---
+
+## 4. Step 1: a threshold
+
+### Problem:
+
+### Solution:
+A bounce is short. So only believe that the button is pressed when it has been 1
+for a while (1ms). So we need to count how long the button has been pressed, if
+it is more than threshold we consider it as pressed otherwise ignore.
+
+**TODO 1.** Delete the placeholder. On every rising edge of `clk`:
+
+- If `noisy` is 1, add 1 to `count`.
+- If `noisy` is 0, set `count` to 0: start over.
 - Set `clean` to 1 if `count` is greater than `THRESHOLD`, and to 0
   otherwise.
+
+**Simulate.** Tests 1, 2, 3 and 5 pass. **Test 4 fails**: a short 0 while
+the button is held makes `clean` go 0 and back to 1.
+
+**Board.**
+
+1. Press BTNC 20 times. The count should now go up by 1 per press.
+2. Press BTNU. Now press BTNC and **keep holding it** for a few seconds.
+   Press lightly, or rock your finger a little. Watch the count.
+
+---
+
+## 5. Step 2: count down
+
+### Problem:
+Look at the LD15. A very Short 0 caused by slightly lifting up the button
+resets the count.
+
+### Solution:
+A short 0 should not throw away the whole press. Instead of starting over,
+**count down** while the button is 0. A short drop then only takes a little
+off `count`.
+
+**TODO 2.** Change the `noisy = 0` case:
+
+- If `noisy` is 0, subtract 1 from `count`, but **not below 0**: if `count`
+  is already 0, leave it.
+
+**Simulate.** Tests 1 to 4 pass. **Test 5 fails**: after a long press,
+`clean` takes too long to go back to 0.
+
+**Board.**
+
+1. Repeat the holding experiment of step 1. No more extra counts.
+2. Now press BTNC and hold it for about **5 seconds**. Release it and watch
+   LD15 and LD0.
+3. Hold it for 5 seconds again. Release it and, while LD0 is still on, press
+   it again quickly.
+
+LD15 goes off when you release, but LD0 stays on for about as long as you
+held the button. A quick press during that time is not counted. While you
+held the button, `count` went up to about 500 000 000 (5 s × 100 MHz), and
+it has to count all the way back down to `THRESHOLD`.
+
+---
+
+## 6. Step 3: a maximum
+
+### Problem
+Step 2 created a new problem **Undercounting:**
+Fast tapping can now miss some of the button presses.
+
+### Solution
+There is no need to remember more than a few milliseconds of "pressed".
+Stop counting up at `MAX` (about 21 ms). Then, however long the button was
+held, a release takes at most about 20 ms to show.
+
+**TODO 3.** Change the `noisy = 1` case:
+
+- If `noisy` is 1, add 1 to `count`, but **not above `MAX`**: if `count`
+  is already `MAX`, leave it.
+
+**Simulate.** All 5 tests pass.
+
+**Board.**
+
+1. Hold BTNC for 5 seconds and release it. LD0 now goes off together with
+   LD15.
+2. Press BTNU. Now **tap BTNC quickly, many times**, for about a minute.
+   Watch the count while you tap.
+
+
+---
+
+## 7. Step 4: a synchronizer
+
+### Problem
+Every tap should count. But you may see the counter **freeze**: taps are not
+counted for many seconds, and then it works again. It does not happen often,
+so keep tapping.
+
+`noisy` comes from outside the FPGA. It can change at any time, also right
+at a rising edge of `clk`.
+
+The next value of `count` comes from logic (an adder) that takes `count` and
+`noisy` as inputs. When `noisy` changes, that logic needs a few nanoseconds to
+settle on its new result. If `noisy` changes just before a clock edge, the 32
+flip-flops of `count` catch the logic **halfway**, while it is still changing.
+`count` can then get a value that is neither `count + 1` nor `count - 1`.
+
+For example, −1 is all ones (`1111...1111`), so the adder adds either
+`0000...0001` or `1111...1111` to `count`. Caught halfway, the top bits of
+the result can already be 1 before the carry that cancels them has arrived.
+`count` lands **far above `MAX`**. The "stop at `MAX`" check never matches
+there, and when you let go, `count` has to count down from up to 2³² − 1:
+about **43 seconds** at 100 MHz. That is the freeze you saw.
+
+## Solution
+The fix: do not let the rest of the circuit look at `noisy` directly. First
+copy it through **two flip-flops**, and use only the copy:
+
+```verilog
+reg s0 = 1'b0, s1 = 1'b0;   // put this next to count
+```
+
+**TODO 4.**
+
+- On every rising edge of `clk`: `s0 <= noisy; s1 <= s0;`
+- Use `s1` instead of `noisy` everywhere else.
+
+`s1` only changes right after a clock edge, so the logic that computes the
+next `count` has a whole clock cycle to settle before the next edge. Vivado
+checks that it does: that is the timing report. The first flip-flop, `s0`,
+takes the risk of `noisy` changing at the clock edge. It may need a little time to decide between 0 and 1, and the
+second flip-flop gives it a whole clock cycle to do so.
+
+**Simulate.** All 5 tests still pass. The testbench cannot show this
+problem: in simulation every flip-flop sees `noisy` change at the same
+instant. Only real wires have different delays.
+
+**Board.** Repeat the tapping experiment of step 3. The counter no longer
+freezes.
+
+Your finished debouncer:
 
 ```mermaid
 flowchart TD
@@ -137,150 +249,35 @@ flowchart TD
     cmp -- no --> zero["clean &lt;= 0"]
 ```
 
-So a press shows up after about 1 ms. Once the button has been held for
-20 ms, `count` is at `MAX`, and the button must be released for about 20 ms
-before `clean` goes back to 0. A short drop while the button is held is
-ignored.
-
-Delete the placeholder line.
-
-**TODO 1b (`mealy_top.v`).**
-
-- Uncomment the `debounce db (...)` instance. Keep the instance name `db`:
-  the XDC file refers to it.
-- Use the debounced signal `step` instead of `btnC` for the FSM
-  `.clock(...)` and for the counter's `.press(...)`.
-
-### 3.3 Test
-
-1. **Simulate** `tb_debounce.v` (*Set as Top*, *Run Behavioral Simulation*).
-   It sets `THRESHOLD` to 5 and `MAX` to 20 so the test is short. It checks
-   that short pulses are ignored, that a bouncy press and a bouncy release
-   each change `clean` exactly once and in time, and that a short drop while
-   the button is held is ignored:
-
-   ```
-   Test 1: short pulses ignored
-   Test 2: one press, clean went to 1 once
-   Test 3: clean stays 1 while held
-   Test 4: short drop while held ignored
-   Test 5: one release, clean went to 0 once
-   tb_debounce: ALL TESTS PASSED
-   ```
-
-   Do not go to the board until it passes.
-
-2. **Run on the board.** Program the board and repeat steps 2–5 of 3.1.
-
-   - The counter now goes up by **exactly 1** per press, no matter how you
-     press.
-   - Releasing the button does not count.
-   - With SW0 up, one press takes the FSM from `S0` to `S1` (LD13).
-
-**Record:** your count after 20 presses.
+Keep `debounce.v`: you use it in the next lab.
 
 ---
 
-## 4. Part 2: The Mealy glitch
+## 8. Summary
 
-From now on keep the debouncer from Part 1. The clock is clean, so anything
-odd you see now comes from the FSM itself.
-
-### 4.1 See the glitch in simulation
-
-1. Set `t_Mealy_Zero_Detector` (in `tb_mealy.v`) as the simulation top and
-   run a behavioral simulation. Add `M0/state` to the waveform.
-2. Zoom in on **40 ns to 60 ns**. The clock has rising edges at 45 and 55 ns.
-   The testbench changes `x_in` at 50, **52** and **54** ns, all **between**
-   these two edges.
-
-You should see:
-
-```
- time (ns)          45                  50      52      54  55
- clock      ________/‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾\___________________/‾‾‾‾‾‾‾‾
- x_in       ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾\_______/‾‾‾‾‾‾‾\____________
- state        S0    │ S1                                    │ S0
- y_out      ____________________________/‾‾‾‾‾‾‾\_______/‾‾‾\________
-```
-
-The state stays `S1` from 45 to 55 ns, but `y_out` goes 1, 0, 1. Only the value
-of `y_out` at the rising edge at 55 ns means anything. The pulse from 50 to
-52 ns and the drop from 52 to 54 ns are **glitches**: they come straight from
-`x_in` through the output logic, with no clock edge.
-
-### 4.2 See the glitch on the board
-
-1. SW1 down, then up (reset). LD12 (`S0`) is on.
-2. SW0 up, press BTNC once. The FSM is in `S1` (LD13). LD0 is off.
-3. **Do not press BTNC.** Flip SW0 down. Then up, then down again.
-
-LD0 turns on and off with SW0, while the state LEDs and the press counter do
-not move. The FSM received no clock edge, yet its output said "zero
-detected" twice. Anything that watched LD0 (another circuit, a counter)
-would believe it.
-
-### 4.3 TODO 2: remove the glitch
-
-Change `mealy_fsm.v` so that `y_out` can no longer follow `x_in` between
-clock edges. Keep it a Mealy machine: `y_out` must still depend on the state
-and on the input.
-
-Hint: the problem is that `x_in` can change at **any** time. Make a
-registered copy of `x_in` that only changes on the **inactive (falling)
-edge** of `clock`, and use that copy instead of `x_in` in both the
-next-state logic and the output logic.
-
-### 4.4 Test
-
-1. **Simulate** `tb_mealy.v` again. Between 50 and 55 ns, `y_out` must now
-   stay at 1: the short changes of `x_in` at 52 and 54 ns are gone.
-   Check that `y_out` only ever changes at a clock edge (rising or falling).
-
-   ```
-    time (ns)          45                  50      52      54  55
-    clock      ________/‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾\___________________/‾‾‾‾‾‾‾‾
-    x_in       ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾\_______/‾‾‾‾‾‾‾\____________
-    x_sync     ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾\____________________________
-    state        S0    │ S1                                    │ S0
-    y_out      ____________________________/‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾\________
-   ```
-
-   `x_sync` (in `M0`) only changes on the falling edge at 50 ns, so the
-   changes of `x_in` at 52 and 54 ns never reach `y_out`.
-
-2. **Run on the board.** Repeat 4.2. Flipping SW0 alone no longer changes
-   LD0. LD0 changes only when you **release** BTNC (the falling edge of the
-   clock).
+| Step | Change                          | `tb_debounce` | What you see on the board                    |
+|:----:|---------------------------------|:-------------:|----------------------------------------------|
+|  0   | `clean <= noisy`                | 1 of 5        | one press counts several times               |
+|  1   | count while 1, start over at 0  | 4 of 5        | a short drop while held counts again         |
+|  2   | count down at 0, stop at 0      | 4 of 5        | `clean` stays 1 as long as the button was held |
+|  3   | stop at `MAX`                   | 5 of 5        | the counter sometimes freezes for seconds    |
+|  4   | two-flip-flop synchronizer      | 5 of 5        | one count per press                          |
 
 ---
 
-## 5. Summary
+### Things to ponder
 
-| Problem       | Cause                                         | Fix                                          |
-|---------------|-----------------------------------------------|----------------------------------------------|
-| Bouncing      | button contacts bounce for a few ms           | count up while pressed, down while released; change only past a threshold |
-| Mealy glitch  | `y_out` is combinational in `x_in`            | let the input change only at the inactive clock edge |
+Work through these on paper.
 
----
-
-### Questions
-
-Work through these on paper. Be ready to explain your answers.
-
-1. Why does the counter sometimes go up when you **release** the button
-   without the debouncer?
-2. What goes wrong if `THRESHOLD` is 100 (1 µs)? What goes wrong if `MAX`
-   is 100 000 000 (1 s)?
-3. Why do we pass the button through two flip-flops before using it? What
-   could happen if `noisy` went straight into the counter logic?
-4. Without the debouncer, with SW0 up, one press sometimes took the FSM from
-   `S0` to `S2`. How many edges did it get? Use the state table.
-5. After your fix in TODO 2, on the board, which value of SW0 does a press
-   use: the one when you press, or the one when you last released? Is this a
-   problem? How would you set SW0 to feed the bits `1 1 0` to the FSM?
-6. The switches bounce too. Did SW0 bouncing cause any problem in this lab?
-   Would it if `x_in` were a clock?
-7. Another way to remove the glitch is a flip-flop on the output:
-   `always @(posedge clock) y_reg <= y_out;`. Compare it with your fix. When
-   does `y_reg` show a detection, compared with `y_out`?
+1. In step 0, why does the count sometimes go up when you **release** the
+   button?
+2. In step 2, what happens if you forget "not below 0"? Look at `count`
+   right after the board is programmed, when the button is not pressed.
+   What do LD0 and the display do?
+3. What goes wrong if `THRESHOLD` is 100 (1 µs)? What goes wrong if `MAX` is
+   100 000 000 (1 s)?
+4. Why does step 3's freeze need `count` to be **wider** than `MAX`? The
+   original version of this debouncer used a 21-bit `count` with
+   `MAX = 2**21 - 1`. How long could the freeze last then?
+5. Why do we use two flip-flops in the synchronizer, and not one? Would
+   three be better?
