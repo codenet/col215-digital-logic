@@ -96,12 +96,15 @@ the most: fast taps, slow presses, or presses that were held down?
 
 ### 3.2 TODO 1: write the debouncer
 
-A bounce lasts at most a few milliseconds. A debouncer only believes a new
-button value when it has **stayed the same for 10 ms**.
+A bounce lasts at most a few milliseconds. The debouncer keeps a counter
+that goes **up while the button reads 1** and **down while it reads 0**. Short
+bounces only move the counter a little; the output only changes when the
+counter has gone far in one direction.
 
 ```verilog
 module debounce #(
-    parameter STABLE_CYCLES = 1_000_000  // 10 ms at 100 MHz
+    parameter THRESHOLD = 100_000,    // 1 ms at 100 MHz
+    parameter MAX       = 2**21 - 1   // about 21 ms at 100 MHz
 )(
     input      clk,
     input      noisy,   // the button
@@ -109,24 +112,35 @@ module debounce #(
 );
 ```
 
-**TODO 1a (`debounce.v`).** Keep a counter `count`. On every rising edge of
-`clk`:
+The two flip-flops `s0` and `s1` are given: they bring the button into the
+`clk` domain. Use only `s1`.
 
-- If `noisy == clean`, nothing new is happening (or it bounced back):
-  reset `count` to 0.
-- Otherwise `noisy` has a new value. Count up. When `count` reaches
-  `STABLE_CYCLES - 1`, the new value has been steady for 10 ms: copy `noisy`
-  into `clean` and reset `count`.
+**TODO 1a (`debounce.v`).** On every rising edge of `clk`:
+
+- If `s1` is 1, add 1 to `count`, but stop at `MAX`.
+- If `s1` is 0, subtract 1 from `count`, but stop at 0.
+- Set `clean` to 1 if `count` is greater than `THRESHOLD`, and to 0
+  otherwise.
 
 ```mermaid
 flowchart TD
-    noisy([noisy: the button]) --> same{"noisy == clean ?"}
-    same -- "yes: no change,<br/>or it bounced back" --> reset1["count &lt;= 0"]
-    same -- "no: new value" --> long{"count == STABLE_CYCLES - 1 ?<br/>(steady for 10 ms)"}
-    long -- no --> inc["count &lt;= count + 1"]
-    long -- yes --> accept["clean &lt;= noisy<br/>count &lt;= 0"]
-    accept --> clean([clean: the debounced button])
+    noisy([noisy: the button]) --> sync["s0 &lt;= noisy<br/>s1 &lt;= s0"]
+    sync --> pressed{"s1 == 1 ?"}
+    pressed -- "yes: pressed" --> top{"count == MAX ?"}
+    top -- no --> inc["count &lt;= count + 1"]
+    top -- yes --> keep1["count stays"]
+    pressed -- "no: released" --> bottom{"count == 0 ?"}
+    bottom -- no --> dec["count &lt;= count - 1"]
+    bottom -- yes --> keep0["count stays"]
+    inc & keep1 & dec & keep0 --> cmp{"count &gt; THRESHOLD ?"}
+    cmp -- yes --> one["clean &lt;= 1"]
+    cmp -- no --> zero["clean &lt;= 0"]
 ```
+
+So a press shows up after about 1 ms. Once the button has been held for
+20 ms, `count` is at `MAX`, and the button must be released for about 20 ms
+before `clean` goes back to 0. A short drop while the button is held is
+ignored.
 
 Delete the placeholder line.
 
@@ -140,15 +154,17 @@ Delete the placeholder line.
 ### 3.3 Test
 
 1. **Simulate** `tb_debounce.v` (*Set as Top*, *Run Behavioral Simulation*).
-   It sets `STABLE_CYCLES` to 5 so the test is short, and checks that short
-   pulses are ignored and that a bouncy press and a bouncy release each
-   change `clean` exactly once, exactly 5 cycles after the bouncing stops:
+   It sets `THRESHOLD` to 5 and `MAX` to 20 so the test is short. It checks
+   that short pulses are ignored, that a bouncy press and a bouncy release
+   each change `clean` exactly once and in time, and that a short drop while
+   the button is held is ignored:
 
    ```
    Test 1: short pulses ignored
    Test 2: one press, clean went to 1 once
    Test 3: clean stays 1 while held
-   Test 4: one release, clean went to 0 once
+   Test 4: short drop while held ignored
+   Test 5: one release, clean went to 0 once
    tb_debounce: ALL TESTS PASSED
    ```
 
@@ -243,7 +259,7 @@ next-state logic and the output logic.
 
 | Problem       | Cause                                         | Fix                                          |
 |---------------|-----------------------------------------------|----------------------------------------------|
-| Bouncing      | button contacts bounce for a few ms           | accept a new value only after it is stable for 10 ms |
+| Bouncing      | button contacts bounce for a few ms           | count up while pressed, down while released; change only past a threshold |
 | Mealy glitch  | `y_out` is combinational in `x_in`            | let the input change only at the inactive clock edge |
 
 ---
@@ -254,11 +270,10 @@ Work through these on paper. Be ready to explain your answers.
 
 1. Why does the counter sometimes go up when you **release** the button
    without the debouncer?
-2. Your debouncer waits 10 ms. What goes wrong if `STABLE_CYCLES` is 100
-   (1 µs)? What goes wrong if it is 100 000 000 (1 s)?
-3. `noisy` is not synchronized to `clk`: it can change right at a `clk`
-   edge. What could go wrong in your debouncer when that happens? Why does it
-   not matter much here?
+2. What goes wrong if `THRESHOLD` is 100 (1 µs)? What goes wrong if `MAX`
+   is 100 000 000 (1 s)?
+3. Why do we pass the button through two flip-flops before using it? What
+   could happen if `noisy` went straight into the counter logic?
 4. Without the debouncer, with SW0 up, one press sometimes took the FSM from
    `S0` to `S2`. How many edges did it get? Use the state table.
 5. After your fix in TODO 2, on the board, which value of SW0 does a press
