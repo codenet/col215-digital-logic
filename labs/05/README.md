@@ -6,55 +6,55 @@
 
 ## 1. Introduction
 
-A push button does not go cleanly from 0 to 1. For a few milliseconds its
-metal contacts **bounce**, so the FPGA sees many 0 → 1 changes for one press.
-If you count presses, one press counts as several. In the next lab a button
-will be the **clock** of an FSM, and every bounce will be an extra clock edge.
+A push button does not go cleanly from 0 to 1. For a few milliseconds, its metal
+contacts **bounce** between 0 and 1 during one button press.
 
-In this lab you build a **debouncer**: a circuit that turns the bouncy button
-signal `noisy` into a clean one, `clean`, that changes once per press and
-once per release. You build it in four steps. Each step fixes a problem that
-you first see on the board, and each step brings out the next problem:
+![alt text](debounce.png)
 
-| Step | Idea                    | Problem it fixes                         |
-|:----:|-------------------------|------------------------------------------|
-|  0   | no debouncer            | –                                        |
-|  1   | threshold               | one press counts several times           |
-|  2   | count down              | A very short release can create multiple counts   |
-|  3   | maximum                 | Under count                              |
-|  4   | synchronizer            | counter sometimes freezes for seconds    |
+In this lab we will build a **debouncer**: a circuit that turns the bouncy
+button's `noisy` signal into a `clean` one, that changes exactly once per press
+and once per release. We will build it in four steps. Each step fixes a problem
+that we observe on the board, and each step brings out the next problem:
+
+| Step  | Idea         | Problem it fixes                                |
+| :---: | ------------ | ----------------------------------------------- |
+|   0   | no debouncer | –                                               |
+|   1   | threshold    | one press counts several times                  |
+|   2   | count down   | A very short release can create multiple counts |
+|   3   | maximum      | Under count                                     |
+|   4   | synchronizer | counter sometimes freezes for seconds           |
 
 ---
 
 ## 2. The board
 
-| Input / Output | Meaning                                                  |
-|----------------|----------------------------------------------------------|
-| BTNC           | the button to debounce (`noisy`)                         |
-| BTNU           | clear the count                                          |
-| LD15           | the button as it is, no debouncing                       |
-| LD0            | `clean`, the debounced button                            |
-| 7-segment      | number of presses: each 0 → 1 change of `clean`          |
+| Input / Output | Meaning                                         |
+| -------------- | ----------------------------------------------- |
+| BTNC           | the button to debounce (`noisy`)                |
+| BTNU           | clear the count                                 |
+| LD15           | the noisy button as it is, no debouncing        |
+| LD0            | `clean`, the debounced button                   |
+| 7-segment      | number of presses: each 0 → 1 change of `clean` |
 
-The 7-segment counter runs on the 100 MHz clock and counts every 0 → 1.
+The 7-segment counter runs on the 100 MHz clock.
 
 ### Provided files
 
-| File               | Status            | Description                                 |
-|--------------------|-------------------|---------------------------------------------|
-| `debounce.v`       | **TODO, steps 1–4** | The debouncer                             |
-| `debounce_top.v`   | Given             | Board wrapper: debouncer, LEDs, counter     |
-| `press_display.v`  | Given             | Press counter on the 7-segment display      |
-| `ssd.v`            | Given             | 7-segment decoder                           |
-| `debounce.xdc`     | Given             | Basys3 constraints                          |
-| `tb_debounce.v`    | Given             | Self-checking testbench for `debounce`      |
+| File              | Status              | Description                                   |
+| ----------------- | ------------------- | --------------------------------------------- |
+| `debounce.v`      | **TODO, steps 1–4** | The debouncer                                 |
+| `debounce_top.v`  | Given               | Board wrapper: debouncer, LEDs, counter       |
+| `press_display.v` | Given               | Button press counter on the 7-segment display |
+| `ssd.v`           | Given               | 7-segment decoder                             |
+| `debounce.xdc`    | Given               | Basys3 constraints                            |
+| `tb_debounce.v`   | Given               | Self-checking testbench for `debounce`        |
 
-Do not change module names, port lists or parameters.
+Do not change module names, port lists, or parameters.
 
-Make a Vivado project for the Basys3 (`xc7a35tcpg236-1`) with
-`debounce_top.v`, `debounce.v`, `press_display.v` and `ssd.v` as design
-sources, `debounce.xdc` as the constraint file, and `tb_debounce.v` as a
-simulation source. `debounce_top` is the top module.
+Make a Vivado project for the Basys3 board (`xc7a35tcpg236-1`) with
+`debounce_top.v`, `debounce.v`, `press_display.v` and `ssd.v` as design sources,
+`debounce.xdc` as the constraint file, and `tb_debounce.v` as a simulation
+source. `debounce_top` is the top module.
 
 ### The debouncer
 
@@ -89,7 +89,7 @@ debouncing yet.
 3. Press and release BTNC **once**, slowly. Look at the display.
 4. Do you notice any discrepency?
 
-The count often goes up by more than 1 for one press, sometimes also when
+The count often goes up by more than 1 for one BTNC press, sometimes also when
 you **release** the button. Each extra count is a bounce.
 
 ---
@@ -97,16 +97,17 @@ you **release** the button. Each extra count is a bounce.
 ## 4. Step 1: a threshold
 
 ### Problem:
+During one button press, the button shows multiple 0 → 1 transitions.
 
 ### Solution:
 A bounce is short. So only believe that the button is pressed when it has been 1
-for a while (1ms). So we need to count how long the button has been pressed, if
-it is more than threshold we consider it as pressed otherwise ignore.
+for a while (1ms). So we need to count how long the button has been pressed. If
+it is more than the threshold, then we consider it as pressed otherwise, we ignore it.
 
 **TODO 1.** Delete the placeholder. On every rising edge of `clk`:
 
 - If `noisy` is 1, add 1 to `count`.
-- If `noisy` is 0, set `count` to 0: start over.
+- If `noisy` is 0, set `count` to 0.
 - Set `clean` to 1 if `count` is greater than `THRESHOLD`, and to 0
   otherwise.
 
@@ -116,7 +117,8 @@ the button is held makes `clean` go 0 and back to 1.
 **Board.**
 
 1. Press BTNC 20 times. The count should now go up by 1 per press.
-2. Press BTNU. Now press BTNC and **keep holding it** for a few seconds.
+2. Press BTNU. 
+3. Now press BTNC and **keep holding it** for a few seconds.
    Press lightly, or rock your finger a little. Watch the count.
 
 ---
@@ -124,8 +126,9 @@ the button is held makes `clean` go 0 and back to 1.
 ## 5. Step 2: count down
 
 ### Problem:
-Look at the LD15. A very Short 0 caused by slightly lifting up the button
-resets the count.
+Look at the LD15. A very short 0 caused by slightly lifting up the button resets
+the count. So even though we have not fully released the button, the SSD display
+shows the counter increasing.
 
 ### Solution:
 A short 0 should not throw away the whole press. Instead of starting over,
@@ -134,8 +137,8 @@ off `count`.
 
 **TODO 2.** Change the `noisy = 0` case:
 
-- If `noisy` is 0, subtract 1 from `count`, but **not below 0**: if `count`
-  is already 0, leave it.
+- If `noisy` is 0, subtract 1 from `count`. 
+- If `count` is already 0, leave it.
 
 **Simulate.** Tests 1 to 4 pass. **Test 5 fails**: after a long press,
 `clean` takes too long to go back to 0.
@@ -158,8 +161,8 @@ it has to count all the way back down to `THRESHOLD`.
 ## 6. Step 3: a maximum
 
 ### Problem
-Step 2 created a new problem **Undercounting:**
-Fast tapping can now miss some of the button presses.
+Step 2 created a new problem. If the button has been pressed for a long time, it
+has to be released for the same long time for it to be considered released.
 
 ### Solution
 There is no need to remember more than a few milliseconds of "pressed".
@@ -177,7 +180,8 @@ held, a release takes at most about 20 ms to show.
 
 1. Hold BTNC for 5 seconds and release it. LD0 now goes off together with
    LD15.
-2. Press BTNU. Now **tap BTNC quickly, many times**, for about a minute.
+2. Press BTNU. 
+3. Now **tap BTNC quickly, many times**, for about a minute.
    Watch the count while you tap.
 
 
@@ -187,11 +191,11 @@ held, a release takes at most about 20 ms to show.
 
 ### Problem
 Every tap should count. But you may see the counter **freeze**: taps are not
-counted for many seconds, and then it works again. It does not happen often,
-so keep tapping.
+counted for many seconds, and then it might work again. It does not happen
+often, so keep tapping. This is a *Mealy glitch*.
 
-`noisy` comes from outside the FPGA. It can change at any time, also right
-at a rising edge of `clk`.
+The problem is that `noisy` comes from outside the FPGA. It can change at any
+time, for example, at a rising edge of `clk`.
 
 The next value of `count` comes from logic (an adder) that takes `count` and
 `noisy` as inputs. When `noisy` changes, that logic needs a few nanoseconds to
@@ -199,12 +203,9 @@ settle on its new result. If `noisy` changes just before a clock edge, the 32
 flip-flops of `count` catch the logic **halfway**, while it is still changing.
 `count` can then get a value that is neither `count + 1` nor `count - 1`.
 
-For example, −1 is all ones (`1111...1111`), so the adder adds either
-`0000...0001` or `1111...1111` to `count`. Caught halfway, the top bits of
-the result can already be 1 before the carry that cancels them has arrived.
-`count` lands **far above `MAX`**. The "stop at `MAX`" check never matches
-there, and when you let go, `count` has to count down from up to 2³² − 1:
-about **43 seconds** at 100 MHz. That is the freeze you saw.
+Because of this, `count` can become **far above `MAX`**. The "stop at `MAX`
+check never matches there, and when you let go, `count` has to count down from
+up to 2³² − 1: about **43 seconds** at 100 MHz. That is the freeze.
 
 ## Solution
 The fix: do not let the rest of the circuit look at `noisy` directly. First
@@ -219,11 +220,11 @@ reg s0 = 1'b0, s1 = 1'b0;   // put this next to count
 - On every rising edge of `clk`: `s0 <= noisy; s1 <= s0;`
 - Use `s1` instead of `noisy` everywhere else.
 
-`s1` only changes right after a clock edge, so the logic that computes the
-next `count` has a whole clock cycle to settle before the next edge. Vivado
-checks that it does: that is the timing report. The first flip-flop, `s0`,
-takes the risk of `noisy` changing at the clock edge. It may need a little time to decide between 0 and 1, and the
-second flip-flop gives it a whole clock cycle to do so.
+The first flip-flop, `s0`, takes the risk of `noisy` changing at the clock edge.
+It may need a little time to decide between 0 and 1, and the second flip-flop
+gives it a whole clock cycle to do so.  `s1` only changes right after a clock
+edge, so the logic that computes the next `count` has a whole clock cycle to
+settle before the next edge. 
 
 **Simulate.** All 5 tests still pass. The testbench cannot show this
 problem: in simulation every flip-flop sees `noisy` change at the same
@@ -249,19 +250,19 @@ flowchart TD
     cmp -- no --> zero["clean &lt;= 0"]
 ```
 
-Keep `debounce.v`: you use it in the next lab.
+We will build upon `debounce.v` in the next lab.
 
 ---
 
 ## 8. Summary
 
-| Step | Change                          | `tb_debounce` | What you see on the board                    |
-|:----:|---------------------------------|:-------------:|----------------------------------------------|
-|  0   | `clean <= noisy`                | 1 of 5        | one press counts several times               |
-|  1   | count while 1, start over at 0  | 4 of 5        | a short drop while held counts again         |
-|  2   | count down at 0, stop at 0      | 4 of 5        | `clean` stays 1 as long as the button was held |
-|  3   | stop at `MAX`                   | 5 of 5        | the counter sometimes freezes for seconds    |
-|  4   | two-flip-flop synchronizer      | 5 of 5        | one count per press                          |
+| Step  | Change                         | `tb_debounce` | What you see on the board                      |
+| :---: | ------------------------------ | :-----------: | ---------------------------------------------- |
+|   0   | `clean <= noisy`               |    1 of 5     | one press counts several times                 |
+|   1   | count while 1, start over at 0 |    4 of 5     | a short drop while held counts again           |
+|   2   | count down at 0, stop at 0     |    4 of 5     | `clean` stays 1 as long as the button was held |
+|   3   | stop at `MAX`                  |    5 of 5     | the counter sometimes freezes for seconds      |
+|   4   | two-flip-flop synchronizer     |    5 of 5     | one count per press                            |
 
 ---
 
@@ -279,5 +280,4 @@ Work through these on paper.
 4. Why does step 3's freeze need `count` to be **wider** than `MAX`? The
    original version of this debouncer used a 21-bit `count` with
    `MAX = 2**21 - 1`. How long could the freeze last then?
-5. Why do we use two flip-flops in the synchronizer, and not one? Would
-   three be better?
+5. Why do we use two flip-flops in the synchronizer, and not one?
