@@ -207,6 +207,9 @@ Because of this, `count` can become **far above `MAX`**. The "stop at `MAX`
 check never matches there, and when you let go, `count` has to count down from
 up to 2³² − 1: about **43 seconds** at 100 MHz. That is the freeze.
 
+
+![schematic](./schematic.png)
+
 ## Solution
 The fix: do not let the rest of the circuit look at `noisy` directly. First
 copy it through **two flip-flops**, and use only the copy:
