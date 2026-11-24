@@ -1,0 +1,104 @@
+// Sets RAM[1] to a bit mask of the jumps taken when comp = RAM[0]:
+//   1 JGT, 2 JEQ, 4 JGE, 8 JLT, 16 JNE, 32 JLE, 64 JMP, 128 no jump
+// (no jump must never be taken, so bit 128 is never set)
+    @R1
+    M=0
+    @R0
+    D=M
+    @T_JGT
+    D;JGT
+(N_JGT)
+    @R0
+    D=M
+    @T_JEQ
+    D;JEQ
+(N_JEQ)
+    @R0
+    D=M
+    @T_JGE
+    D;JGE
+(N_JGE)
+    @R0
+    D=M
+    @T_JLT
+    D;JLT
+(N_JLT)
+    @R0
+    D=M
+    @T_JNE
+    D;JNE
+(N_JNE)
+    @R0
+    D=M
+    @T_JLE
+    D;JLE
+(N_JLE)
+    @R0
+    D=M
+    @T_JMP
+    D;JMP
+(N_JMP)
+    @R0
+    D=M
+    @T_NULL
+    D
+(N_NULL)
+(END)
+    @END
+    0;JMP
+(T_JGT)
+    @1
+    D=A
+    @R1
+    M=D+M
+    @N_JGT
+    0;JMP
+(T_JEQ)
+    @2
+    D=A
+    @R1
+    M=D+M
+    @N_JEQ
+    0;JMP
+(T_JGE)
+    @4
+    D=A
+    @R1
+    M=D+M
+    @N_JGE
+    0;JMP
+(T_JLT)
+    @8
+    D=A
+    @R1
+    M=D+M
+    @N_JLT
+    0;JMP
+(T_JNE)
+    @16
+    D=A
+    @R1
+    M=D+M
+    @N_JNE
+    0;JMP
+(T_JLE)
+    @32
+    D=A
+    @R1
+    M=D+M
+    @N_JLE
+    0;JMP
+(T_JMP)
+    @64
+    D=A
+    @R1
+    M=D+M
+    @N_JMP
+    0;JMP
+(T_NULL)
+    @128
+    D=A
+    @R1
+    M=D+M
+    @N_NULL
+    0;JMP

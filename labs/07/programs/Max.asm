@@ -1,0 +1,21 @@
+// Computes RAM[2] = max(RAM[0], RAM[1])
+    @R0
+    D=M
+    @R1
+    D=D-M
+    @R0_BIGGER
+    D;JGT
+    @R1
+    D=M
+    @R2
+    M=D
+    @END
+    0;JMP
+(R0_BIGGER)
+    @R0
+    D=M
+    @R2
+    M=D
+(END)
+    @END
+    0;JMP
