@@ -250,9 +250,31 @@ Run the testbench `tb_cpu.v` to test your implementation.
 
 Once your CPU passes the testbenches, program the computer on the board using Vivado:
 
+1. Create a new RTL project for the Basys3 board (part `xc7a35tcpg236-1`).
+2. Add these design sources: `top.v`, `hex_display.v`, `computer.v`,
+   `cpu.v`, `alu.v`, `sixteen_bit_adder.v`, `full_adder.v`, `mux2_16.v` and
+   `zero_negate.v`. **Leave "Copy sources into project" unticked** (see
+   below).
+3. Add `top.xdc` as the constraints file.
+4. Make sure `top` is the top module, then click *Generate Bitstream*.
+5. Open the *Hardware Manager* and program the board.
+
 By default `./programs/Counter.hack` is loaded, see `./programs/Counter.asm`
 to understand what it does.
- 
+
+`top.v` loads the program into the ROM from the file named by `ROM_FILE`.
+Vivado looks for this file relative to the folder that contains
+`computer.v`. If you copy the sources into the project, Vivado cannot find
+the program, and builds a computer with an empty ROM: the board then shows
+nothing. Vivado reports this only as a critical warning in the *Messages*
+window:
+
+```
+CRITICAL WARNING: [Synth 8-4445] could not open $readmem data file 'programs/Counter.hack'
+```
+
+If the board shows nothing, check for this warning first.
+
 ### A slow clock
 
 The board's clock runs at 100 MHz. At that speed, the counter would go
@@ -267,21 +289,52 @@ instruction at a time.
 |--------------|---------------------------------------------------------------|
 | LD14 .. LD0  | `pc` in binary: the address of the next instruction           |
 | LD15         | the computer's clock                                          |
-| 7-segment    | the last value the program wrote to the RAM, in hexadecimal   |
+| 7-segment    | `RAM[32767]` in hexadecimal (see below)                       |
 | BTNC         | reset: hold it until `pc` goes back to 0                      |
 
 Watch the LEDs: `pc` goes through 2, 3, 4, 5, then jumps back to 2. That is
 the loop.
 
-> **Question 8:** Change `top.v` to show `outM` directly instead of `shown`.
-> What do you see? Explain each value using the instruction that `pc` points
-> to.
+### The display is memory mapped
+
+How does a program show something on the display? Hack has no "print"
+instruction. Instead, the display is *memory mapped*: it is given a RAM
+address, 32767 (`111111111111111`, the last address), and whatever the
+program writes to that address appears on the display. To the program, the
+display is just another memory word. `computer.v` watches for writes to that
+address:
+
+```verilog
+if (writeM) ram[addressM] <= outM;
+if (writeM && addressM == SSD_ADDRESS) ssd <= outM;
+```
+
+The word is stored in the RAM as well, so a program can also read back what
+is on the display. That is how `M=M+1` in the counter works.
+
+To select the display, `A` must hold 32767. `Counter.asm` uses `A=-1`: this
+sets `A` to `1111111111111111`, and `addressM` is the low 15 bits of `A`,
+which are all 1.
+
+Real computers talk to their devices (screen, keyboard, network card, ...) in
+the same way. The full Hack computer maps its screen to RAM addresses 16384
+onwards, and its keyboard to address 24576.
+
+The display shows the 16-bit value as 4 hexadecimal digits, one digit for
+every 4 bits (`hex_display.v`).
+
+> **Question 8:** Why can't the program use `@-1` to select the display?
+> Give another instruction, other than `A=-1`, that selects it.
+
+> **Question 9:** The counter counts in hexadecimal. What comes after `0009`?
+> After `00FF`? What happens after `FFFF`, and why?
 
 ### Running your own program
 
 Write a program, assemble it with the web assembler, and save the `.hack`
-file in `programs/`. Then set `ROM_FILE` in `top.v` to your file and run
-`make board` again.
+file in `programs/`. Then set `ROM_FILE` in `top.v` to your file (for
+example `"programs/MyProgram.hack"`), generate the bitstream again, and
+program the board.
 
 > **Question 10:** Change the counter to count down from 10 to 0, and then
 > stop.

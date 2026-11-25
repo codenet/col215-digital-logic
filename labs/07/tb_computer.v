@@ -11,6 +11,10 @@
 //   Mult   RAM[2] = RAM[0] * RAM[1]
 //   Fill   RAM[RAM[0] + i] = i for i < RAM[1]          (pointers, A=M, AM=, MD=)
 //   Jumps  RAM[1] = mask of the jumps taken for RAM[0] (all 8 jump fields)
+//   Counter  counts up in RAM[32767], the memory-mapped display
+//
+// It also checks that the display (ssd) shows RAM[32767], and that writes to
+// other addresses do not change it.
 //
 // Each program gets its own computer; all of them share the clock and reset.
 module tb_computer;
@@ -25,6 +29,7 @@ module tb_computer;
     computer #(.ROM_FILE("programs/Mult.hack"))  mult  (.clk(clk), .reset(reset));
     computer #(.ROM_FILE("programs/Fill.hack"))  fill  (.clk(clk), .reset(reset));
     computer #(.ROM_FILE("programs/Jumps.hack")) jumps (.clk(clk), .reset(reset));
+    computer #(.ROM_FILE("programs/Counter.hack")) counter (.clk(clk), .reset(reset));
 
     localparam CYCLES = 3000;   // enough for the longest run (Sum with n = 100)
 
@@ -32,7 +37,7 @@ module tb_computer;
     integer i, k, n, a, b;
 
     task expect;
-        input [8*6-1:0]  prog;
+        input [8*7-1:0]  prog;
         input [8*24-1:0] what;
         input [0:15]     got, want;
         begin
@@ -51,6 +56,7 @@ module tb_computer;
             for (i = 0; i < 32768; i = i + 1) begin
                 add.ram[i] = 0; max.ram[i] = 0; sum.ram[i] = 0;
                 mult.ram[i] = 0; fill.ram[i] = 0; jumps.ram[i] = 0;
+                counter.ram[i] = 0;
             end
         end
     endtask
@@ -110,6 +116,11 @@ module tb_computer;
                 expect("Fill", "RAM[base + i]", fill.ram[100 + 10*k + i], i);
             expect("Fill", "RAM[base + n]", fill.ram[100 + 10*k + k + 3], 0);
             expect("Jumps", "RAM[1]", jumps.ram[1], jump_mask(a));
+            // Counter executes M=M+1 once every 4 instructions
+            expect("Counter", "RAM[32767]", counter.ram[32767], CYCLES / 4);
+            expect("Counter", "display", counter.ssd, counter.ram[32767]);
+            // The other programs never write to the display
+            expect("Fill", "display", fill.ssd, 0);
         end
 
         if (errors == 0)
