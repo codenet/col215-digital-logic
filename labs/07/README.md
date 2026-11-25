@@ -1,4 +1,5 @@
 # Building a Computer
+[Click Me To Download this folder all-at-once](https://download-directory.github.io/?url=https%3A%2F%2Fgithub.com%2Fcodenet%2Fcol215-digital-logic%2Ftree%2Fmain%2Flabs%2F07)
 
 In this lab we will build a computer on the Basys3 board.
 
